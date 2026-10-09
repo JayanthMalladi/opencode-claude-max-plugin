@@ -56,7 +56,7 @@ test("Vite builds the three Node ESM entrypoints with external runtime dependenc
   expect(output).toMatch(/from ["']@anthropic-ai\/sdk["']/)
   expect(output).not.toMatch(/solid-js\/web|react\/jsx-runtime|document\.createElement/)
   for (const name of [
-    "claudecode-system",
+    "claudecode-system-haiku55",
     "claudecode-system-sonnet5",
     "claudecode-system-opus5",
     "claudecode-system-fable5",

@@ -104,7 +104,7 @@ These are the exact headers Claude Code sends, in order of discovery importance:
 | `user-agent`                                | `claude-cli/2.1.286 (external, sdk-cli)` | Client identification             |
 | `x-app`                                     | `cli`                                    | Application type                  |
 | `anthropic-dangerous-direct-browser-access` | `true`                                   | Bypass browser restriction        |
-| `x-stainless-package-version`               | `0.127.0`                                | SDK version bundled by CC 2.1.286 |
+| `x-stainless-package-version`               | `0.128.0`                                | SDK version bundled by CC 2.1.295 |
 | `content-type`                              | `application/json`                       | Standard                          |
 
 ### Beta Flags
@@ -115,7 +115,7 @@ Claude Code 2.1.286 sends these flags on a normal Opus 5.5 OAuth inference reque
 claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,effort-2025-11-24,extended-cache-ttl-2025-04-11
 ```
 
-For Haiku it moves `claude-code-20250219` after the other base flags and sends only `advisor-tool-2026-03-01` and `extended-cache-ttl-2025-04-11` after them. `fallback-credit-2026-06-01` is no longer part of the normal set; the plugin sends it only alongside `server-side-fallback-2026-07-01` when a request carries a `fallbacks` chain or echoes a `fallback` block. `src/index.test.ts` pins the exact per-model strings from 2.1.286 captures.
+For Haiku 5.5 (captured from 2.1.295) it moves `claude-code-20250219` right after `mid-conversation-system-2026-04-07`; the remaining flags match Opus 5.5. `fallback-credit-2026-06-01` is no longer part of the normal set; the plugin sends it only alongside `server-side-fallback-2026-07-01` when a request carries a `fallbacks` chain or echoes a `fallback` block. `src/index.test.ts` pins the exact per-model strings from 2.1.286 captures.
 
 | Flag                              | Purpose                                                                           |
 | --------------------------------- | --------------------------------------------------------------------------------- |
@@ -130,13 +130,13 @@ For Haiku it moves `claude-code-20250219` after the other base flags and sends o
 
 Model-conditional flags (added in `wrappedFetch` based on body model field):
 
-| Flag                                       | Models                                     | Purpose                                             |
-| ------------------------------------------ | ------------------------------------------ | --------------------------------------------------- |
-| `effort-2025-11-24`                        | Opus / Sonnet / Fable (NOT Haiku)          | `output_config.effort`. Haiku rejects this flag     |
-| `mid-conversation-system-2026-04-07`       | Opus 4.8+ / Sonnet 5+ / Fable 5+           | Allows `role: "system"` messages mid-conversation   |
-| `per-turn-control-2026-07-01`              | Opus 5.5 / Sonnet 5.5 / Fable 5.1          | Sent by Claude Code since at least 2.1.280          |
-| `mid-conversation-tool-changes-2026-07-01` | Opus 4.8+ / Fable 5+ (not Sonnet 5 or 5.5) | Sent by Claude Code since at least 2.1.280          |
-| `context-1m-2025-08-07`                    | When body > 600K chars                     | Long-context routing (only for very large requests) |
+| Flag                                       | Models                                        | Purpose                                             |
+| ------------------------------------------ | --------------------------------------------- | --------------------------------------------------- |
+| `effort-2025-11-24`                        | All registered models                         | `output_config.effort`                              |
+| `mid-conversation-system-2026-04-07`       | Opus 4.8+ / Sonnet 5+ / Fable 5+ / Haiku 5.5  | Allows `role: "system"` messages mid-conversation   |
+| `per-turn-control-2026-07-01`              | Opus 5.5 / Sonnet 5.5 / Haiku 5.5 / Fable 5.1 | Sent by Claude Code since at least 2.1.280          |
+| `mid-conversation-tool-changes-2026-07-01` | Opus 4.8+ / Fable 5+ / Haiku 5.5 (not Sonnet) | Sent by Claude Code since at least 2.1.280          |
+| `context-1m-2025-08-07`                    | When body > 600K chars                        | Long-context routing (only for very large requests) |
 
 The `oauth-2025-04-20` flag alone is NOT sufficient for subscription model access — the billing system block is also required.
 
@@ -307,7 +307,7 @@ Fable 5's safety classifiers can decline a request. Critically, **a refusal is a
 **Anthropic's recommended pattern is to fall back to Claude Opus 4.8** for refused requests. Three approaches:
 
 1. **Server-side fallback** (beta on Claude API / Platform on AWS): pass `fallbacks: "default"` or an explicit model list with the `server-side-fallback-2026-07-01` beta header. The API retries within one round trip. The response's top-level `model` names who served it; a `fallback` content block marks each handoff; `usage.iterations[]` records every attempt (`type: "message"` = declined, `type: "fallback_message"` = served). Sticky routing pins follow-ups to the accepting model for ~1h.
-2. **Client-side middleware**: `betaRefusalFallbackMiddleware([{ model: "claude-opus-4-8" }])` + a shared `BetaFallbackState` in newer SDKs. Works on any platform; also sends a fallback-credit beta. The plugin pins SDK 0.127.0 to match Claude Code and uses server-side fallback directly instead of this middleware.
+2. **Client-side middleware**: `betaRefusalFallbackMiddleware([{ model: "claude-opus-4-8" }])` + a shared `BetaFallbackState` in newer SDKs. Works on any platform; also sends a fallback-credit beta. The plugin pins SDK 0.128.0 to match Claude Code and uses server-side fallback directly instead of this middleware.
 3. **Manual**: detect `stop_reason: "refusal"`, re-send on the fallback model. Redeem a fallback credit (`fallback-credit-2026-06-01`) to avoid paying the prompt-cache write cost twice.
 
 **Current plugin behavior**: server-side fallback to Opus 4.8 is **implemented and enabled by default** (verified live on OAuth — see below). A refusal error is only surfaced when the whole chain refused (`refusalError` in `src/model.ts`, `buildRefusalError` in `src/stream.ts` — kept local to avoid a circular import); the wording then notes the fallback model also refused.
@@ -490,13 +490,14 @@ The Opus 4.7/Sonnet/Haiku prompts are byte-identical except for two lines (model
 
 **Our implementation** branches in `experimental.chat.system.transform` on `input.model.id`:
 
+- `claude-haiku-5-5` → `claudecode-system-haiku55.txt` (Sonnet 5.5 harness + turn-completion paragraphs)
 - `claude-sonnet-5-5`, `claude-opus-5-5` → `claudecode-system-sonnet55.txt` (condensed harness)
 - `claude-sonnet-5` → `claudecode-system-sonnet5.txt` (long-form harness)
 - `claude-opus-5` → `claudecode-system-opus5.txt` (delivery + corrections guidance)
 - `claude-fable-5-1` → `claudecode-system-fable51.txt` (delivery + final-message writing rules)
 - `claude-fable-5` → `claudecode-system-fable5.txt` (communication guidance)
 - `claude-opus-4-8` → `claudecode-system-new.txt` (shorter condensed prompt)
-- All other models → `claudecode-system.txt` (long-form)
+- All other models → `claudecode-system-sonnet55.txt` (the legacy long-form `claudecode-system.txt` was removed with Haiku 4.5)
 
 The prompt files are scrubbed copies of the CC captures — Claude Code-specific bits such as memory paths and autonomous-session behavior are removed. OpenCode tool names stay verbatim since the existing bidirectional tool-name mapper handles them at the API layer.
 
@@ -836,7 +837,6 @@ The stream `finish` event was missing `cachedInputTokens` because `stream.ts` on
 
 Real OpenCode request data captured and stored for testing:
 
-- `src/claudecode-system.txt` — captured Claude Code base system prompt (12.8K chars)
 - `src/fixtures/opencode-tools.json` — actual 22 tool definitions (66K chars)
 
 ---
@@ -1082,3 +1082,4 @@ The server plugin goes in `.opencode/opencode.json` separately:
 34. **2026-10-01: Thinking signatures lost under OpenCode v2** → Proxy captures showed no `thinking` blocks in replayed history for any model, so the model lost its reasoning between tool calls. OpenCode v2 keeps part `providerMetadata` only under the route's provider key: the providerID `anthropic-sdk` for non-`@ai-sdk/*` packages (`providerOptionKey` in `packages/core/src/aisdk.ts`). It replays the stored state under the same key as `providerOptions`, so `{ anthropic: ... }` was silently dropped. The plugin now writes part metadata under both `anthropic-sdk` and `anthropic`, and reads either key on replay. Live Sonnet 5.5 and Opus 5.5 tool loops now replay signed thinking blocks with HTTP 200 and growing cache reads. Reasoning parts persisted before the fix cannot be repaired.
 35. **2026-10-02: Claude Code 2.1.286 alignment** → Captured all eight models from Claude Code 2.1.280 and 2.1.286 (`claude -p "Say OK"` through `scripts/cache-proxy.ts`, which now also dumps redacted request headers). Between those versions the system prompts changed only in the environment section's model-ID list, which the plugin strips. Comparing the captures with our distilled files exposed older drift. Opus 5.5 had been using the Opus 5 prompt, but Claude Code sends it the Sonnet 5.5 prompt. Fable 5.1 had been using the Fable 5 prompt, but it has its own, now distilled into `claudecode-system-fable51.txt`. Claude Code 2.1.286 bundles `@anthropic-ai/sdk` 0.127.0 (2.1.280 bundled 0.112.1), so the plugin pin and `x-stainless-package-version` moved from 0.94.0 to 0.127.0. Betas now match the captures exactly. `fallback-credit-2026-06-01` left the default set, and `per-turn-control-2026-07-01` and `mid-conversation-tool-changes-2026-07-01` were added per model. Haiku gets its own base order. The unused raw prompt captures in `src/fixtures/` were removed. Interactive TUI captures differ from `-p` only by one CLI-specific bullet about the `!` shell prefix.
 36. **2026-10-02: Redundant `cd` into the session directory** → In OpenCode v2 history, Opus 5.5 started 77% of shell calls with `cd` (42% into the session directory itself) and never used `workdir`. Under v1, Opus 4.7 did this 0% of the time. OpenCode v1's bash description explicitly forbade `cd <dir> && <cmd>` with examples, and v2 shortened that to a soft hint on the `workdir` parameter. Claude Code's Bash tool tells the model the working directory persists between calls. So after one `cd` elsewhere, the model returns with `cd <repo> &&` on every later call and keeps copying its own pattern. The reproduction was an open-ended task with python scripts in `/tmp/opencode/cc-traces` followed by repo commands, run three times per variant. Without a note, the repo command got a `cd <repo> &&` prefix in 3 of 3 runs. OpenCode's own Claude prompt through OpenCode Zen did the same in 1 of 3 runs, and set `workdir` to the repo in another. Every hook-note variant brought the `cd` back to 0 of 3. No wording, including a concrete `workdir` example, got Opus 5.5 to use `workdir` for the `/tmp` work: it kept writing `cd /tmp/... &&`, which works because each call is fresh. It used `workdir` only when the user's request itself said "inside X run …". A wording without the "leave `workdir` unset" clause made one run set `workdir` to the session directory. The same guidance in the Bash tool description barely helped (13 of 16 calls still used `cd`). The shipped note combines the one-call `cd` fact with OpenCode's own soft `workdir` wording; that exact wording was not separately measured.
+37. **2026-10-09: Claude Haiku 5.5 replaces Haiku 4.5** → Captured `claude-haiku-5-5` and `claude-sonnet-5-5` from Claude Code 2.1.295 (`claude -p "Say OK"`, capture-only proxy). Haiku 5.5's request matches Sonnet 5.5's apart from the model ID, the beta order (`claude-code-20250219` after `mid-conversation-system-2026-04-07`), and the system prompt: Claude Code sends Haiku the Sonnet 5.5 prompt plus five paragraphs on effort, ending turns, when to ask, file edits, and partial progress. Unlike the excluded autonomous-session block, these assume an interactive user, so they stay in `claudecode-system-haiku55.txt`. Haiku 5.5 supports effort (medium default), adaptive thinking, 1M context, and 128K output; API pricing is $0.10/$0.50 per Mtok ($0.50/$2.50 above 100K input). Removed Haiku 4.5, its beta ordering and effort exclusion, and the legacy long-form prompt it used. The SDK pin and `x-stainless-package-version` moved to 0.128.0 (bundled by 2.1.295); the user-agent and billing block still report 2.1.286. 2.1.295 additionally sends `inline-tools-2026-09-15` and changes Sonnet 5.5's identity line.

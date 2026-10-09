@@ -62,7 +62,7 @@ The credentials must be accessible to the process running the provider. The usag
 Choose a model from the `anthropic-sdk` provider in OpenCode, or run:
 
 ```sh
-opencode run --standalone -m anthropic-sdk/claude-haiku-4-5 'Reply with exactly OK.'
+opencode run --standalone -m anthropic-sdk/claude-haiku-5-5 'Reply with exactly OK.'
 opencode run --standalone -m 'anthropic-sdk/claude-sonnet-5-5#high' 'Explain this code.'
 ```
 
@@ -70,7 +70,7 @@ Registered models (each row is a separate selectable entry):
 
 | Model             | OpenCode model ID   |
 | ----------------- | ------------------- |
-| Claude Haiku 4.5  | `claude-haiku-4-5`  |
+| Claude Haiku 5.5  | `claude-haiku-5-5`  |
 | Claude Sonnet 5   | `claude-sonnet-5`   |
 | Claude Sonnet 5.5 | `claude-sonnet-5-5` |
 | Claude Opus 4.8   | `claude-opus-4-8`   |
@@ -81,7 +81,7 @@ Registered models (each row is a separate selectable entry):
 
 [Claude Opus 5](https://platform.claude.com/docs/en/models/opus-5/overview) remains available as a legacy model; it is not an alias for [Opus 5.5](https://platform.claude.com/docs/en/models/opus-5-5/overview). Anthropic names it “Claude Opus 5”, not “Claude Opus 5.0”.
 
-Sonnet 4.6, Opus 4.6 (including the `-1m` variant), and Opus 4.7 are no longer registered by this plugin. Select a supported model when continuing sessions that used them.
+Haiku 4.5, Sonnet 4.6, Opus 4.6 (including the `-1m` variant), and Opus 4.7 are no longer registered by this plugin. Select a supported model when continuing sessions that used them.
 
 Registration does not guarantee account access to a model. Use these OpenCode IDs rather than dated API aliases.
 

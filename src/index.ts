@@ -2,20 +2,20 @@ import type { LanguageModelV3 } from "@ai-sdk/provider"
 import Anthropic from "@anthropic-ai/sdk"
 import CLAUDE_FABLE5_SYSTEM_PROMPT from "./claudecode-system-fable5.txt"
 import CLAUDE_FABLE51_SYSTEM_PROMPT from "./claudecode-system-fable51.txt"
+import CLAUDE_HAIKU55_SYSTEM_PROMPT from "./claudecode-system-haiku55.txt"
 import CLAUDE_NEW_SYSTEM_PROMPT from "./claudecode-system-new.txt"
 import CLAUDE_OPUS5_SYSTEM_PROMPT from "./claudecode-system-opus5.txt"
 import CLAUDE_SONNET5_SYSTEM_PROMPT from "./claudecode-system-sonnet5.txt"
 import CLAUDE_SONNET55_SYSTEM_PROMPT from "./claudecode-system-sonnet55.txt"
-import CLAUDE_MAIN_SYSTEM_PROMPT from "./claudecode-system.txt"
 import { getCachedCredentials, readClaudeCredentials } from "./credentials.ts"
 import { AnthropicSDKModel, FALLBACK_BETAS_HEADER } from "./model.ts"
 import { cachedUsage, persistCachedUsage } from "./usage.ts"
 
-export const CLAUDE_CODE_SYSTEM_PROMPT = CLAUDE_MAIN_SYSTEM_PROMPT
 export const CLAUDE_CODE_NEW_SYSTEM_PROMPT = CLAUDE_NEW_SYSTEM_PROMPT
 export const CLAUDE_CODE_OPUS5_SYSTEM_PROMPT = CLAUDE_OPUS5_SYSTEM_PROMPT
 export const CLAUDE_CODE_SONNET5_SYSTEM_PROMPT = CLAUDE_SONNET5_SYSTEM_PROMPT
 export const CLAUDE_CODE_SONNET55_SYSTEM_PROMPT = CLAUDE_SONNET55_SYSTEM_PROMPT
+export const CLAUDE_CODE_HAIKU55_SYSTEM_PROMPT = CLAUDE_HAIKU55_SYSTEM_PROMPT
 export const CLAUDE_CODE_FABLE5_SYSTEM_PROMPT = CLAUDE_FABLE5_SYSTEM_PROMPT
 export const CLAUDE_CODE_FABLE51_SYSTEM_PROMPT = CLAUDE_FABLE51_SYSTEM_PROMPT
 
@@ -23,14 +23,18 @@ export const CLAUDE_CODE_FABLE51_SYSTEM_PROMPT = CLAUDE_FABLE51_SYSTEM_PROMPT
  * Select the Claude Code system prompt that matches the given model.
  *
  * Claude Code ships per-model prompts. Sonnet 5.5 and Opus 5.5 share the
- * condensed harness without delivery and correction guidance; Sonnet 5 gets
+ * condensed harness without delivery and correction guidance; Haiku 5.5 gets
+ * that harness plus paragraphs on finishing work within a turn; Sonnet 5 gets
  * its long-form harness; Opus 5 gets its condensed scope, delivery, and
  * correction guidance; Fable 5.1 gets delivery guidance and strict
  * final-message writing rules; Fable 5 gets its communication guidance;
- * Opus 4.8 gets the shorter earlier harness. Older models get the legacy
- * long-form prompt.
+ * Opus 4.8 gets the shorter earlier harness. Unknown models get the latest
+ * shared harness.
  */
 export function selectClaudePromptForModel(modelId: string): string {
+  if (modelId.includes("haiku-5-5")) {
+    return CLAUDE_HAIKU55_SYSTEM_PROMPT
+  }
   if (modelId.includes("sonnet-5-5") || modelId.includes("opus-5-5")) {
     return CLAUDE_SONNET55_SYSTEM_PROMPT
   }
@@ -49,7 +53,7 @@ export function selectClaudePromptForModel(modelId: string): string {
   if (modelId.includes("opus-4-8")) {
     return CLAUDE_NEW_SYSTEM_PROMPT
   }
-  return CLAUDE_MAIN_SYSTEM_PROMPT
+  return CLAUDE_SONNET55_SYSTEM_PROMPT
 }
 
 /**
@@ -59,10 +63,10 @@ export function selectClaudePromptForModel(modelId: string): string {
 const CLAUDE_CODE_VERSION = "2.1.286"
 
 /**
- * @anthropic-ai/sdk version bundled with CLAUDE_CODE_VERSION, sent as
+ * @anthropic-ai/sdk version bundled with Claude Code 2.1.295, sent as
  * x-stainless-package-version. Keep the package.json pin in sync.
  */
-const CLAUDE_CODE_SDK_VERSION = "0.127.0"
+const CLAUDE_CODE_SDK_VERSION = "0.128.0"
 
 /**
  * Beta flags that Claude Code sends on every OAuth request.
@@ -82,22 +86,27 @@ const OAUTH_BETAS = [
   "prompt-caching-scope-2026-01-05",
 ]
 
-/** Claude Code sends Haiku the same base flags with its own gate moved last. */
-const HAIKU_OAUTH_BETAS = [...OAUTH_BETAS.slice(1), "claude-code-20250219"]
+/** Claude Code moves its own gate after mid-conversation-system for Haiku. */
+const HAIKU_OAUTH_BETAS = OAUTH_BETAS.slice(1)
 
 /**
  * Model-conditional OAuth flags in the order Claude Code 2.1.286 appends
  * them after the base flags.
  */
 function modelOAuthBetas(model: string): string[] {
-  const isClaude5 = ["opus-4-8", "opus-5", "sonnet-5", "fable-5"].some((m) => model.includes(m))
-  const isLatest = ["opus-5-5", "sonnet-5-5", "fable-5-1"].some((m) => model.includes(m))
+  const isClaude5 = ["opus-4-8", "opus-5", "sonnet-5", "fable-5", "haiku-5"].some((m) =>
+    model.includes(m),
+  )
+  const isLatest = ["opus-5-5", "sonnet-5-5", "haiku-5-5", "fable-5-1"].some((m) =>
+    model.includes(m),
+  )
   return [
     ...(isClaude5 ? ["mid-conversation-system-2026-04-07"] : []),
+    ...(model.includes("haiku") ? ["claude-code-20250219"] : []),
     ...(isLatest ? ["per-turn-control-2026-07-01"] : []),
     ...(isClaude5 && !model.includes("sonnet") ? ["mid-conversation-tool-changes-2026-07-01"] : []),
     "advisor-tool-2026-03-01",
-    ...(!model.includes("haiku") ? ["effort-2025-11-24"] : []),
+    "effort-2025-11-24",
     "extended-cache-ttl-2025-04-11",
   ]
 }
@@ -116,7 +125,7 @@ export const PROVIDER_ID = "anthropic-sdk"
  * registration time.
  */
 const API_KEY_COSTS = {
-  haiku: { input: 1.0, output: 5.0, cache_read: 0.1, cache_write: 1.25 },
+  haiku55: { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
   sonnet5: { input: 2.0, output: 10.0, cache_read: 0.2, cache_write: 2.5 },
   opus: { input: 5.0, output: 25.0, cache_read: 0.5, cache_write: 6.25 },
   opus55: { input: 4.0, output: 20.0, cache_read: 0.2, cache_write: 5.0 },
@@ -141,18 +150,25 @@ export function buildPluginModels(isOAuth: boolean) {
   }
 
   return {
-    "claude-haiku-4-5": {
-      name: "Claude Haiku 4.5",
-      reasoning: false,
+    /**
+     * Haiku 5.5 (added in Claude Code 2.1.293) shares Sonnet 5.5's limits and
+     * medium default effort. Prompts over 100K tokens are billed at 5x the
+     * listed API-key rates.
+     */
+    "claude-haiku-5-5": {
+      name: "Claude Haiku 5.5",
+      reasoning: true,
       tool_call: true,
       attachment: true,
-      temperature: true,
-      limit: { context: 200_000, output: 64_000 },
-      cost: cost("haiku"),
+      temperature: false,
+      limit: { context: 1_000_000, output: 128_000 },
+      cost: cost("haiku55"),
       modalities: {
-        input: ["text", "image"] as Array<"text" | "image">,
+        input: ["text", "image", "pdf"] as Array<"text" | "image" | "pdf">,
         output: ["text"] as Array<"text">,
       },
+      options: { effort: "medium", refusalFallback: "default" },
+      ...effortVariants,
     },
     "claude-sonnet-5": {
       name: "Claude Sonnet 5",
@@ -433,8 +449,12 @@ export function createAnthropicSDK(
 
       // Match Claude Code's model flags and exact ordering.
       const base = model.includes("haiku") ? HAIKU_OAUTH_BETAS : OAUTH_BETAS
-      const ordered = [...base, ...betas.filter((beta) => !base.includes(beta))]
-      for (const beta of modelOAuthBetas(model)) {
+      const modelBetas = modelOAuthBetas(model)
+      const ordered = [
+        ...base,
+        ...betas.filter((beta) => !base.includes(beta) && !modelBetas.includes(beta)),
+      ]
+      for (const beta of modelBetas) {
         if (!ordered.includes(beta)) ordered.push(beta)
       }
 

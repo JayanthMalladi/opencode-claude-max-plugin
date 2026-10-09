@@ -17,7 +17,7 @@ import {
   CLAUDE_CODE_OPUS5_SYSTEM_PROMPT,
   CLAUDE_CODE_SONNET5_SYSTEM_PROMPT,
   CLAUDE_CODE_SONNET55_SYSTEM_PROMPT,
-  CLAUDE_CODE_SYSTEM_PROMPT,
+  CLAUDE_CODE_HAIKU55_SYSTEM_PROMPT,
   buildPluginModels,
   createAnthropicSDK,
   selectClaudePromptForModel,
@@ -28,9 +28,9 @@ import {
 describe("createAnthropicSDK", () => {
   test("creates a provider with API key", () => {
     const provider = createAnthropicSDK({ apiKey: "sk-ant-test" })
-    const model = provider.languageModel("claude-haiku-4-5-20251001")
+    const model = provider.languageModel("claude-haiku-5-5")
     expect(model.specificationVersion).toBe("v3")
-    expect(model.modelId).toBe("claude-haiku-4-5-20251001")
+    expect(model.modelId).toBe("claude-haiku-5-5")
   })
 
   test("falls back to Claude Code credentials file", async () => {
@@ -70,9 +70,9 @@ describe("createAnthropicSDK", () => {
           )
         }) as typeof fetch,
       })
-      const m = provider.languageModel("claude-haiku-4-5-20251001")
+      const m = provider.languageModel("claude-haiku-5-5")
       expect(m.specificationVersion).toBe("v3")
-      expect(m.modelId).toBe("claude-haiku-4-5-20251001")
+      expect(m.modelId).toBe("claude-haiku-5-5")
 
       // Call with fake OAuth token — should get 401 (NOT "missing auth"),
       // proving the credentials file was read and used.
@@ -158,7 +158,7 @@ describe("createAnthropicSDK", () => {
       })
       expect(execSyncSpy).not.toHaveBeenCalled()
 
-      const model = provider.languageModel("claude-haiku-4-5-20251001")
+      const model = provider.languageModel("claude-haiku-5-5")
       try {
         await model.doGenerate({
           prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
@@ -206,8 +206,8 @@ describe("createAnthropicSDK", () => {
       "claude-fable-5": `${base},mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,effort-2025-11-24,extended-cache-ttl-2025-04-11`,
       "claude-opus-4-8": `${base},mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,effort-2025-11-24,extended-cache-ttl-2025-04-11`,
       "claude-sonnet-5": `${base},mid-conversation-system-2026-04-07,advisor-tool-2026-03-01,effort-2025-11-24,extended-cache-ttl-2025-04-11`,
-      "claude-haiku-4-5":
-        "oauth-2025-04-20,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,claude-code-20250219,advisor-tool-2026-03-01,extended-cache-ttl-2025-04-11",
+      "claude-haiku-5-5":
+        "oauth-2025-04-20,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,claude-code-20250219,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,effort-2025-11-24,extended-cache-ttl-2025-04-11",
     }
 
     const savedKey = process.env.ANTHROPIC_API_KEY
@@ -233,7 +233,7 @@ describe("createAnthropicSDK", () => {
           } as any)
         } catch {}
         expect(headers.get("anthropic-beta"), modelId).toBe(betas)
-        expect(headers.get("x-stainless-package-version")).toBe("0.127.0")
+        expect(headers.get("x-stainless-package-version")).toBe("0.128.0")
       }
     } finally {
       if (savedKey) process.env.ANTHROPIC_API_KEY = savedKey
@@ -245,8 +245,8 @@ describe("createAnthropicSDK", () => {
 
 describe("selectClaudePromptForModel", () => {
   test("imports prompt contents rather than an asset URL under Node tests", () => {
-    expect(CLAUDE_CODE_SYSTEM_PROMPT).toBe(
-      readFileSync(new URL("./claudecode-system.txt", import.meta.url), "utf8"),
+    expect(CLAUDE_CODE_HAIKU55_SYSTEM_PROMPT).toBe(
+      readFileSync(new URL("./claudecode-system-haiku55.txt", import.meta.url), "utf8"),
     )
   })
   test("uses model-specific Claude 5 prompts", () => {
@@ -272,7 +272,12 @@ describe("selectClaudePromptForModel", () => {
     ]) {
       expect(CLAUDE_CODE_FABLE51_SYSTEM_PROMPT).not.toContain(excluded)
     }
-    expect(selectClaudePromptForModel("claude-haiku-4-5")).toBe(CLAUDE_CODE_SYSTEM_PROMPT)
+    // Claude Code sends Haiku 5.5 the Sonnet 5.5 harness plus turn-completion guidance.
+    expect(selectClaudePromptForModel("claude-haiku-5-5")).toBe(CLAUDE_CODE_HAIKU55_SYSTEM_PROMPT)
+    expect(CLAUDE_CODE_HAIKU55_SYSTEM_PROMPT.startsWith(CLAUDE_CODE_SONNET55_SYSTEM_PROMPT)).toBe(
+      true,
+    )
+    expect(selectClaudePromptForModel("claude-unknown")).toBe(CLAUDE_CODE_SONNET55_SYSTEM_PROMPT)
   })
 })
 
@@ -301,6 +306,13 @@ describe("buildPluginModels", () => {
         cost: { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
         options: { effort: "medium", refusalFallback: "default" },
       })
+      expect(models["claude-haiku-5-5"]).toMatchObject({
+        name: "Claude Haiku 5.5",
+        limit: { context: 1_000_000, output: 128_000 },
+        cost: { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
+        options: { effort: "medium", refusalFallback: "default" },
+      })
+      expect(models).not.toHaveProperty("claude-haiku-4-5")
       expect(models["claude-sonnet-5"].cost).toEqual({
         input: 2,
         output: 10,

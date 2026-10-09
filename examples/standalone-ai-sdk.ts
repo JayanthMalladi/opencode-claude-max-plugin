@@ -16,7 +16,7 @@ const systemPrompt =
   "You are an interactive agent that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user."
 
 const provider = createAnthropicSDK()
-const model = provider.languageModel("claude-haiku-4-5-20251001")
+const model = provider.languageModel("claude-haiku-5-5")
 
 console.log("--- streamText example ---")
 

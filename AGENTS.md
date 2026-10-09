@@ -69,7 +69,7 @@ Rebuilding (`npm run build`) is enough between runs — no reinstall needed. A s
 
 ```bash
 # Uses ~/.claude/.credentials.json automatically
-opencode run --standalone -m "anthropic-sdk/claude-haiku-4-5" "Say OK"
+opencode run --standalone -m "anthropic-sdk/claude-haiku-5-5" "Say OK"
 opencode run --standalone -m "anthropic-sdk/claude-sonnet-5" "What is 2+2?"
 opencode run --standalone -m "anthropic-sdk/claude-opus-5-5" "What model are you?"
 ```
@@ -77,7 +77,7 @@ opencode run --standalone -m "anthropic-sdk/claude-opus-5-5" "What model are you
 ### Test with tool use
 
 ```bash
-opencode run --standalone -m "anthropic-sdk/claude-haiku-4-5" "Read package.json and tell me the package name"
+opencode run --standalone -m "anthropic-sdk/claude-haiku-5-5" "Read package.json and tell me the package name"
 ```
 
 ### Check usage
@@ -87,7 +87,7 @@ In the TUI, type `/usage` to open the usage dialog. The sidebar also shows live 
 ### Debug with logs
 
 ```bash
-opencode run --standalone --print-logs --log-level debug -m "anthropic-sdk/claude-haiku-4-5" "Say OK" 2>&1 | grep -E "level=(WARN|ERROR)"
+opencode run --standalone --print-logs --log-level debug -m "anthropic-sdk/claude-haiku-5-5" "Say OK" 2>&1 | grep -E "level=(WARN|ERROR)"
 ```
 
 `--print-logs` only includes server logs with `--standalone`. "Model unavailable: anthropic-sdk/…" means the plugin did not load — check the WARN lines for the plugin path.
@@ -108,7 +108,7 @@ bun scripts/cache-proxy.ts --help                # all options
 pkill -f cache-proxy.ts                          # or: kill -9 $(lsof -ti :19827)
 
 # Terminal 2: run OpenCode through proxy (--standalone so the env var reaches the server)
-ANTHROPIC_BASE_URL=http://localhost:19827 opencode run --standalone -m "anthropic-sdk/claude-haiku-4-5" "Say OK"
+ANTHROPIC_BASE_URL=http://localhost:19827 opencode run --standalone -m "anthropic-sdk/claude-haiku-5-5" "Say OK"
 
 # Or capture Claude Code's reference request (same env var). Run it from an empty
 # dir; the capture is in req-NNN-<model>.json even if the CLI then stalls.
@@ -241,7 +241,7 @@ These must be maintained — they are load-bearing for Claude Code compatibility
 7. **`anthropic-ratelimit-unified-status: over_limit`** is the authoritative signal for subscription exhaustion — do not match on error message text
 8. **Single cache breakpoint on `messages[-1].content[-1]`** for OAuth multi-turn cache to hit. Matches Claude Code's wire format. See "Prompt Caching" in RESEARCH.md
 9. **User message content must always be array-of-blocks**, never a plain string. Otherwise the same logical content gets different byte shapes turn-to-turn → cache miss
-10. **Claude 5 prompts follow Claude Code's per-model mapping** — Sonnet 5, Opus 5, Fable 5, and Fable 5.1 each use a distinct distilled prompt file; Opus 5.5 shares Sonnet 5.5's file because Claude Code sends both the byte-identical prompt. Only share a prompt when same-version captures prove Claude Code does. The explicit cyber-safety directive, identity blurbs, autonomous-session paragraphs, and dynamic memory/environment/git-status sections are intentionally excluded; OpenCode appends its own environment and project instructions.
+10. **Claude 5 prompts follow Claude Code's per-model mapping** — Sonnet 5, Opus 5, Fable 5, Fable 5.1, and Haiku 5.5 each use a distinct distilled prompt file; Opus 5.5 shares Sonnet 5.5's file because Claude Code sends both the byte-identical prompt. Haiku 5.5's file is Sonnet 5.5's plus the turn-completion paragraphs Claude Code appends only for Haiku. Only share a prompt when same-version captures prove Claude Code does. The explicit cyber-safety directive, identity blurbs, autonomous-session paragraphs, and dynamic memory/environment/git-status sections are intentionally excluded; OpenCode appends its own environment and project instructions.
 
 ---
 
@@ -257,7 +257,7 @@ OAuth tokens use `Authorization: Bearer` with the `oauth-2025-04-20` beta. The b
 
 ## Testing Notes
 
-- Live tests (`model.test.ts`) use Haiku 4.5 (cheapest model) for most cases, including thinking; one case covers `claude-sonnet-5`
+- Live tests (`model.test.ts`) use Haiku 5.5 (cheapest model) for most cases, including thinking; one case covers `claude-sonnet-5`
 - Thinking and prompt-caching tests require OAuth credentials and are skipped under an API key
 - Fixture files in `src/fixtures/` contain real captured OpenCode request data — don't modify them arbitrarily as the caching test depends on their size (~20K tokens)
 

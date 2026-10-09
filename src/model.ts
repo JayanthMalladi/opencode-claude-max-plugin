@@ -132,7 +132,7 @@ export const FALLBACK_BETAS_HEADER = "x-anthropic-sdk-fallback-betas"
 /**
  * Anthropic gates subscription model access (Opus, Sonnet, etc.) for OAuth
  * tokens behind this billing header in the system prompt. Without it, OAuth
- * tokens get 400 on non-Haiku models. This is how Claude Code authenticates.
+ * tokens get 400 on Sonnet/Opus models. This is how Claude Code authenticates.
  */
 const BILLING_SYSTEM_BLOCK = {
   type: "text" as const,
@@ -174,12 +174,17 @@ function usesAdaptiveThinking(apiModelId: string): boolean {
     apiModelId.includes("claude-opus-4-8") ||
     apiModelId.includes("claude-sonnet-5") ||
     apiModelId.includes("claude-opus-5") ||
-    apiModelId.includes("claude-fable-5")
+    apiModelId.includes("claude-fable-5") ||
+    apiModelId.includes("claude-haiku-5")
   )
 }
 
 function defaultEffort(apiModelId: string): string {
-  if (apiModelId.includes("claude-opus-5-5") || apiModelId.includes("claude-sonnet-5-5")) {
+  if (
+    apiModelId.includes("claude-opus-5-5") ||
+    apiModelId.includes("claude-sonnet-5-5") ||
+    apiModelId.includes("claude-haiku-5-5")
+  ) {
     return "medium"
   }
   if (
@@ -302,13 +307,13 @@ export class AnthropicSDKModel implements LanguageModelV3 {
 
       // Claude Code sends output_config for models that support effort. Claude
       // 5 models omit sampling parameters; older effort models send temperature 1.
-      const supportsEffort =
-        !this.apiModelId.includes("haiku") && !this.apiModelId.includes("claude-3-")
+      const supportsEffort = !this.apiModelId.includes("claude-3-")
       if (supportsEffort) {
         const omitsSamplingParameters =
           this.apiModelId.includes("claude-opus-5") ||
           this.apiModelId.includes("claude-sonnet-5") ||
           this.apiModelId.includes("claude-fable-5") ||
+          this.apiModelId.includes("claude-haiku-5") ||
           this.apiModelId.includes("claude-mythos-5")
         if (options.temperature == null && !omitsSamplingParameters) {
           params.temperature = 1

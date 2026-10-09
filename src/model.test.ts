@@ -29,7 +29,7 @@ let model: ReturnType<typeof createAnthropicSDK>["languageModel"] extends (id: s
 
 if (hasAuth) {
   provider = createAnthropicSDK(apiKey ? { apiKey } : {})
-  model = provider.languageModel("claude-haiku-4-5-20251001")
+  model = provider.languageModel("claude-haiku-5-5")
 }
 
 function skipUnless(condition: boolean, reason: string) {
@@ -260,7 +260,7 @@ describe("AI SDK integration", () => {
 describe("thinking", () => {
   if (skipUnless(isOAuth, "thinking tests require OAuth credentials")) return
 
-  const getThinkingModel = () => provider.languageModel("claude-haiku-4-5")
+  const getThinkingModel = () => provider.languageModel("claude-haiku-5-5")
 
   test("doStream produces reasoning events with signature", async () => {
     const thinkingModel = getThinkingModel()
@@ -507,7 +507,10 @@ describe("prompt caching", () => {
 
   test("cache hits with full-size OpenCode-like prompt", async () => {
     // Use the real captured OpenCode system prompt and tools from fixtures.
-    const systemPrompt = readFileSync(new URL("./claudecode-system.txt", import.meta.url), "utf-8")
+    const systemPrompt = readFileSync(
+      new URL("./claudecode-system-sonnet5.txt", import.meta.url),
+      "utf-8",
+    )
     const realTools = JSON.parse(
       readFileSync(new URL("./fixtures/opencode-tools.json", import.meta.url), "utf-8"),
     ) as Array<{ name: string; description: string; input_schema: any }>
@@ -519,7 +522,7 @@ describe("prompt caching", () => {
       inputSchema: t.input_schema,
     }))
 
-    const cachingModel = provider.languageModel("claude-haiku-4-5-20251001")
+    const cachingModel = provider.languageModel("claude-haiku-5-5")
 
     // Request 1: cold — writes cache
     const r1 = await streamUsage(
